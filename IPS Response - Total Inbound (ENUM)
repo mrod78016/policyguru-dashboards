@@ -18,7 +18,7 @@
   <row>
     <panel>
       <table>
-        <title>Last 24 Hours 15m Buckets</title>
+        <title>Last 24 Hours | 15m Buckets</title>
         <search id="parent">
           <query>| dbxquery 
 connection="ngp_connection" 
