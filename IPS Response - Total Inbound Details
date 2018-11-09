@@ -1,0 +1,139 @@
+<dashboard>
+  <label>IPS Response - Total Inbound Details</label>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by Minute</title>
+        <search base="cdr">
+          <query>| eval _time=strptime(flowtime_ts_gmt,"%Y-%m-%d %H:%M:%S")
+| timechart span=1m count by policydisposition fixedrange=false</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Calls Per Second Max, Min, Average</title>
+        <search base="cdr">
+          <query>| stats count by flowtime_ts_gmt
+| stats max(count) as max min(count) as min avg(count) as average</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="number" field="average"></format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top 10 Source Numbers</title>
+        <search base="cdr">
+          <query>| stats count by sourcenumber
+| sort -count
+| head 10
+| join type=left sourcenumber
+[
+| dbxquery 
+connection="mssv_db" 
+timeout=1800 query="
+SELECT list_name, value_original as sourcenumber
+FROM   pg_directory
+"
+]
+| table sourcenumber list_name count
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top 10 Destination Numbers</title>
+        <search base="cdr">
+          <query>| stats count by destinationnumber
+| sort -count
+| head 10
+| join type=left destinationnumber
+[
+| dbxquery 
+connection="mss_db" 
+timeout=1800 query="
+SELECT list_name, value_original as destinationnumber
+FROM   pg_directory WHERE list_name LIKE '%BU%'
+"
+]
+| table destinationnumber list_name count
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="count">
+          <colorPalette type="minMidMax" maxColor="#DC4E41" minColor="#FFFFFF"></colorPalette>
+          <scale type="minMidMax"></scale>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>by Routername</title>
+        <search base="cdr">
+          <query>| stats count by routername
+| sort -count
+| head 10</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>| dbxquery 
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT to_timestamp(a.flowtime/1000) at time zone 'CST6CDT' as flowtime_ts_cst6cdt,
+       to_timestamp(a.flowtime/1000) at time zone 'GMT' as flowtime_ts_gmt,
+       a.sourcenumber,
+       a.sourceregion,
+       a.destinationnumber,
+       a.destinationregion,
+       CASE a.direction
+        WHEN 1 THEN 'INBOUND'
+        ELSE 'OUTBOUND'
+       END as direction,
+       a.routername,
+       CASE s.policydisposition
+         WHEN 0 THEN 'UNKNOWN'
+         WHEN 1 THEN 'ALLOWED'
+         WHEN 2 THEN 'TERMINATED'
+         WHEN 3 THEN 'REDIRECTED'
+         WHEN 4 THEN 'TRANSFERRED'
+         WHEN 5 THEN 'UNANSWERED'
+         WHEN 6 THEN 'EXPIRED'
+         ELSE s.policydisposition::varchar
+       END as policydisposition,
+       s.ruleid
+FROM     master.flowstart a LEFT OUTER JOIN master.policyflowdetails s ON a.guid=s.guid
+WHERE    a.routername LIKE 'enum%' AND
+         to_timestamp(floor((extract('epoch' from to_timestamp(a.analyticstime/1000)) / 900 )) * 900)  AT TIME ZONE 'GMT' = '$date_value$'
+" shortnames=t
+| table flowtime_ts_gmt flowtime_ts_cst6cdt sourcenumber sourceregion destinationnumber destinationregion direction routername policydisposition ruleid</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
