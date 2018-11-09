@@ -1,0 +1,43 @@
+<dashboard>
+  <label>IPS Response - Total Inbound (ENUM)</label>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by 15m Buckets</title>
+        <search base="parent">
+          <query>| chart sum(calls) by buckets</query>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">all</option>
+        <drilldown>
+          <link target="_blank">/app/search/ips_response__total_inbound_details_not_manual_run?date_value=$click.value$</link>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Last 24 Hours 15m Buckets</title>
+        <search id="parent">
+          <query>| dbxquery 
+connection="ngp_connection" 
+timeout=1800 query="
+SELECT   to_timestamp(floor((extract('epoch' from to_timestamp(a.analyticstime/1000)) / 900 )) * 900) AT TIME ZONE 'GMT' as buckets,
+         COALESCE(count(a.guid),0) as calls
+FROM     master.flowstart a
+WHERE    a.routername LIKE 'enum%' AND
+         a.direction = 1 AND
+         a.analyticstime &gt;= (extract (epoch from now() - INTERVAL '24 HOUR') * 1000)::bigint
+GROUP BY  to_timestamp(floor((extract('epoch' from to_timestamp(a.analyticstime/1000)) / 900 )) * 900) AT TIME ZONE 'GMT'
+ORDER BY  to_timestamp(floor((extract('epoch' from to_timestamp(a.analyticstime/1000)) / 900 )) * 900) AT TIME ZONE 'GMT'
+" shortnames=t</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
