@@ -3,7 +3,7 @@
   <row>
     <panel>
       <chart>
-        <title>Calls by 15m Buckets</title>
+        <title>Calls by 15mins Buckets</title>
         <search base="parent">
           <query>| chart sum(calls) by buckets</query>
         </search>
